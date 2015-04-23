@@ -83,17 +83,15 @@ module.exports = {
   startPriority: 1001, // the lowest post-core middleware priority
   start: function(api, next){
       api.sequelize.connect().then(function () {
-          if (api.config.sequelize.autoMigrate) {
+          if (api.config.sequelize.autoMigrate == null || api.config.sequelize.autoMigrate) {
               return api.sequelize.autoMigrate();
           }
       }).then(function () {
-          if(api.env === "test") {
+          if(api.config.sequelize.loadFixtures == null || api.config.sequelize.loadFixtures) {
               return api.sequelize.loadFixtures();
           }
       }).then(next)
           .catch(function (err) {
-              api.log(err, 'warning');
-              console.log(err);
               next(err);
           });
   }
