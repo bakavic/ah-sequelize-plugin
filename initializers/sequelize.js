@@ -20,7 +20,7 @@ module.exports = {
               sequelize: sequelizeInstance
           },
           migrations: {
-              params: [sequlizeInstance.getQueryInterface(), sequlizeInstance.constructor, function() {
+              params: [sequelizeInstance.getQueryInterface(), sequelizeInstance.constructor, function() {
                   throw new Error('Migration tried to use old style "done" callback. Please upgrade to "umzug" and return a promise instead.');
               }],
               path: api.projectRoot + '/migrations'
