@@ -71,7 +71,7 @@ module.exports = {
         if(api.config.sequelize.autoMigrate == null || api.config.sequelize.autoMigrate) {
             migrateSequelizeMeta(api, umzug).then(function () {
                 return umzug.up();
-            }).then(next());
+            }).all().then(next());
         } else {
             next();
         }
@@ -154,11 +154,14 @@ function migrateSequelizeMeta(api, umzug) {
             }).all();
         } else {
             // TODO check the table layout in case it's empty
+            return false;
         }
-    }).then(function() {
-        var completeMsg = 'SequelizeMeta migration complete!';
-        api.log(completeMsg);
-        console.log(completeMsg);
+    }).then(function(migrated) {
+        if (migrated) {
+            var completeMsg = 'SequelizeMeta migration complete!';
+            api.log(completeMsg);
+            console.log(completeMsg);
+        }
     }).catch(Sequelize.DatabaseError, function (err) {
         var noTableMsg = 'No SequelizeMeta table found - skipping meta migration';
         api.log(noTableMsg);
