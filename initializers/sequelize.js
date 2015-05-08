@@ -70,8 +70,11 @@ module.exports = {
       autoMigrate: function(next) {
         if(api.config.sequelize.autoMigrate == null || api.config.sequelize.autoMigrate) {
             migrateSequelizeMeta(api, umzug)
-                .then(umzug.up())
-                .then(function () {
+                .then(function() {
+                    return umzug.up().then(function() {
+                        return;
+                    });
+                }).then(function () {
                     next();
                 });
         } else {
