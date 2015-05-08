@@ -69,7 +69,7 @@ module.exports = {
 
       autoMigrate: function(next) {
         if(api.config.sequelize.autoMigrate == null || api.config.sequelize.autoMigrate) {
-            migrateSequelizeMeta(api.sequelize.sequelize, umzug).then(function () {
+            migrateSequelizeMeta(api, umzug).then(function () {
                 return umzug.up();
             }).then(next());
         } else {
@@ -110,9 +110,9 @@ module.exports = {
   }
 };
 
-function migrateSequelizeMeta(sequelize, umzug) {
+function migrateSequelizeMeta(api, umzug) {
 
-    var migration = sequelize.getQueryInterface();
+    var migration = api.sequelize.sequelize.getQueryInterface();
 
     // Check if we need to upgrade from the old sequlize migration format
     return api.sequelize.sequelize.query('SELECT * FROM "SequelizeMeta";', {
@@ -132,7 +132,7 @@ function migrateSequelizeMeta(sequelize, umzug) {
                 });
 
             // Drop the existing migration data
-            return sequelize.query('DELETE FROM "SequelizeMeta";', null, {
+            return api.sequelize.sequelize.query('DELETE FROM "SequelizeMeta";', null, {
                 raw: true
 
                 // Update the table format
