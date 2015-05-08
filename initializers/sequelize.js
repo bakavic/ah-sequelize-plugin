@@ -7,19 +7,17 @@ module.exports = {
   initialize: function(api, next){
     api.models = {};
 
-    api.sequelize = {
+      var sequelizeInstance = new Sequelize(
+          api.config.sequelize.database,
+          api.config.sequelize.username,
+          api.config.sequelize.password,
+          api.config.sequelize
+      );
 
-        sequelize: new Sequelize(
-            api.config.sequelize.database,
-            api.config.sequelize.username,
-            api.config.sequelize.password,
-            api.config.sequelize
-        ),
-
-      umzug: new Umzug({
+      var umzug = new Umzug({
           storage: 'sequelize',
           storageOptions: {
-              sequelize: api.sequelize.sequelize
+              sequelize: sequelizeInstance
           },
           migrations: {
               params: [sequlizeInstance.getQueryInterface(), sequlizeInstance.constructor, function() {
@@ -27,7 +25,11 @@ module.exports = {
               }],
               path: api.projectRoot + '/migrations'
           }
-      }),
+      });
+
+    api.sequelize = {
+
+        sequelize: sequelizeInstance,
 
       migrate: function(opts, next){
         if(typeof opts === "function"){
@@ -36,11 +38,11 @@ module.exports = {
         }
         opts = opts === null ? { method: 'up' } : opts;
 
-          api.sequelize.umzug.execute(opts).then(next());
+          umzug.execute(opts).then(next());
       },
 
       migrateUndo: function(next) {
-          api.sequelize.umzug.down().then(next());
+          umzug.down().then(next());
       },
 
       connect: function(next){
@@ -67,8 +69,8 @@ module.exports = {
 
       autoMigrate: function(next) {
         if(api.config.sequelize.autoMigrate == null || api.config.sequelize.autoMigrate) {
-            migrateSequelizeMeta(api.sequelize.umzug).then(function () {
-                return api.sequelize.umzug.up();
+            migrateSequelizeMeta(umzug).then(function () {
+                return umzug.up();
             }).then(next());
         } else {
             next();
