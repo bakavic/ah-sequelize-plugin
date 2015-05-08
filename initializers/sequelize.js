@@ -152,17 +152,10 @@ function migrateSequelizeMeta(api, umzug) {
                     });
                 });
             }).all();
-
         } else {
             // TODO check the table layout in case it's empty
         }
-
-    }, function() {
-        return true;
-
     }).then(function() {
-        umzug[method]().then(function() {
-            api.log('SequelizeMeta migration complete!');
-        });
+        api.log('SequelizeMeta migration complete!');
     });
 }
