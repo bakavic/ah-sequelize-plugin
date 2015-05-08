@@ -7,11 +7,29 @@ module.exports = {
   initialize: function(api, next){
     api.models = {};
 
-      var umzugCfg = {
-          path: api.projectRoot + '/migrations'
-      };
+      var sequelizeInstance = new Sequelize(
+          api.config.sequelize.database,
+          api.config.sequelize.username,
+          api.config.sequelize.password,
+          api.config.sequelize
+      );
+
+      var umzug = new Umzug({
+          storage: 'sequelize',
+          storageOptions: {
+              sequelize: sequelizeInstance
+          },
+          migrations: {
+              params: [sequlizeInstance.getQueryInterface(), sequlizeInstance.constructor, function() {
+                  throw new Error('Migration tried to use old style "done" callback. Please upgrade to "umzug" and return a promise instead.');
+              }],
+              path: api.projectRoot + '/migrations'
+          }
+      });
 
     api.sequelize = {
+
+        sequelize: sequelizeInstance,
 
       migrate: function(opts, next){
         if(typeof opts === "function"){
@@ -20,21 +38,14 @@ module.exports = {
         }
         opts = opts === null ? { method: 'up' } : opts;
 
-          new Umzug(umzugCfg).execute(opts).then(next());
+          umzug.execute(opts).then(next());
       },
 
       migrateUndo: function(next) {
-          new Umzug(umzugCfg).down().then(next());
+          umzug.down().then(next());
       },
 
       connect: function(next){
-        api.sequelize.sequelize = new Sequelize(
-          api.config.sequelize.database,
-          api.config.sequelize.username,
-          api.config.sequelize.password,
-          api.config.sequelize
-        );
-
         var dir = path.normalize(api.projectRoot + '/models');
         fs.readdirSync(dir).forEach(function(file){
           var nameParts = file.split("/");
@@ -58,7 +69,9 @@ module.exports = {
 
       autoMigrate: function(next) {
         if(api.config.sequelize.autoMigrate == null || api.config.sequelize.autoMigrate) {
-            new Umzug(umzugCfg).up().then(next());
+            migrateSequelizeMeta(umzug).then(function () {
+                return umzug.up();
+            }).then(next());
         } else {
             next();
         }
@@ -96,3 +109,60 @@ module.exports = {
     });
   }
 };
+
+function migrateSequelizeMeta(umzug) {
+
+    var migration = api.sequelize.sequelize.getQueryInterface();
+
+    // Check if we need to upgrade from the old sequlize migration format
+    return api.sequelize.sequelize.query('SELECT * FROM "SequelizeMeta";', {
+        raw: true
+
+    }).then(function(raw) {
+
+        var rows = raw[0];
+        if (rows.length && rows[0].hasOwnProperty('id')) {
+
+            var migrationFiles = fs.readdirSync(umzug.options.migrations.path),
+                data = rows.map(function(row) {
+                    return migrationFiles.filter(function(f) {
+                        return f.substring(0, row.to.length) === row.to;
+
+                    })[0];
+                });
+
+            // Drop the existing migration data
+            return sequelizeInstance.query('DELETE FROM "SequelizeMeta";', null, {
+                raw: true
+
+                // Update the table format
+            }).then(function() {
+                return [
+                    migration.renameColumn('SequelizeMeta', 'to', 'name'),
+                    migration.removeColumn('SequelizeMeta', 'from'),
+                    migration.removeColumn('SequelizeMeta', 'id')
+                ];
+                // Insert data in the new migration format
+            }).then(function() {
+                var MetaModel = umzug.storage.options.storageOptions.model;
+
+                return data.map(function(migrationName) {
+                    return MetaModel.create({
+                        name: migrationName
+                    });
+                });
+            }).all();
+
+        } else {
+            // TODO check the table layout in case it's empty
+        }
+
+    }, function() {
+        return true;
+
+    }).then(function() {
+        umzug[method]().then(function() {
+            api.log('SequelizeMeta migration complete!');
+        });
+    });
+}
