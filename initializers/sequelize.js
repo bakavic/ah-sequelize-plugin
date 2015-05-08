@@ -156,6 +156,12 @@ function migrateSequelizeMeta(api, umzug) {
             // TODO check the table layout in case it's empty
         }
     }).then(function() {
-        api.log('SequelizeMeta migration complete!');
+        var completeMsg = 'SequelizeMeta migration complete!';
+        api.log(completeMsg);
+        console.log(completeMsg);
+    }).catch(Sequelize.DatabaseError, function (err) {
+        var noTableMsg = 'No SequelizeMeta table found - skipping meta migration';
+        api.log(noTableMsg);
+        console.log(noTableMsg);
     });
 }
